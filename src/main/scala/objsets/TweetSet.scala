@@ -118,7 +118,6 @@ class Empty extends TweetSet {
   def union(that: TweetSet): TweetSet = that
 
   def mostRetweeted: Tweet = throw new java.util.NoSuchElementException
-  def mostRetweetedHelper(ts: TweetSet, t: Tweet): Tweet = t
 
   def descendingByRetweet: TweetList = Nil
 
@@ -140,12 +139,37 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
   override def isEmpty: Boolean = false
 
   def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet =
-    if (p(elem)) right.filterAcc(p, left.filterAcc(p, acc)).incl(elem)
+    if (p(elem)) right.filterAcc(p, left.filterAcc(p, acc.incl(elem)))
     else right.filterAcc(p, left.filterAcc(p, acc))
 
   def union(that: TweetSet): TweetSet =
-    if (that contains elem) that.union(left).union(right)
-    else that.union(left).union(right).incl(elem)
+    if (that contains elem) left.union(right.union(that))
+    else left.union(right.union(that.incl(elem)))
+
+  /*
+    La formulazione di union incide sulla possibilità che giunga a termine con insiemi di grandi dimensioni.
+
+    Vedi a questo proposito il forum, di cui riporto un estratto
+
+
+TG
+ · 2 months ago · Edited
+
+I was stuck at the same issue, and it turned out to be the definition of union.
+
+In the Lecture 3.1 - Class Hierarchies, the union for the class IntSet is defined as
+
+def union(other: IntSet): IntSet = ((left union right) union other) incl elem
+
+When I use the same definition for union in TweetSet, the TweetReader.allTweets computation gets stuck and never finishes. However, what's confusing is that when the implementation is slightly changed this way,
+
+def union(other: IntSet): IntSet = (left union (right union other)) incl elem
+
+the same computation finishes within a couple of seconds. And with that, all tests pass.
+
+If someone can provide some clarification for the difference between the two, it will be really appreciated. Mathematically, both appear to be the same thing, causing the surprise.
+
+   */
 
   private def mostRetweeted(a: Tweet, b: Tweet): Tweet = if(a isMoreRetweetedThan b) a else b
 
@@ -213,10 +237,10 @@ object GoogleVsApple {
   val google = List("android", "Android", "galaxy", "Galaxy", "nexus", "Nexus")
   val apple = List("ios", "iOS", "iphone", "iPhone", "ipad", "iPad")
 
-  def pippo(l: List[String]): Tweet => Boolean = t => l.exists(s => t.text.contains(s))
+  def createFilterFunc(l: List[String]): Tweet => Boolean = t => l.exists(s => t.text.contains(s))
 
-  lazy val googleTweets: TweetSet = TweetReader.allTweets.filter(pippo(google))
-  lazy val appleTweets: TweetSet = TweetReader.allTweets.filter(pippo(apple))
+  lazy val googleTweets: TweetSet = TweetReader.allTweets.filter(createFilterFunc(google))
+  lazy val appleTweets: TweetSet = TweetReader.allTweets.filter(createFilterFunc(apple))
   
   /**
    * A list of all tweets mentioning a keyword from either apple or google,
